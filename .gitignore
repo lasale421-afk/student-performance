@@ -1,0 +1,19 @@
+# Virtual environment
+.venv/
+
+# Python build and cache files
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Downloaded dataset cache (re-downloaded automatically if missing)
+data/
+
+# Trained models (re-created by the train command)
+models/

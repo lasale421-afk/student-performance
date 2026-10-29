@@ -1,0 +1,19 @@
+# Project settings. Paths are relative to the project root (the folder of this file).
+
+random_seed: 42
+
+data:
+  uci_id: 320                       # UCI "Student Performance" dataset
+  cache_path: data/student_performance.csv
+  grade_column: G3                  # final grade (0-20), used to build the target
+  pass_mark: 10                     # fail = 1 if G3 < pass_mark
+  leakage_columns: [G1, G2]         # period grades, too close to G3 and not known early
+
+split:
+  test_size: 0.2                    # 20 % of students kept aside for the final test
+
+cv:
+  n_splits: 5                       # StratifiedKFold folds, the same for every model
+
+threshold:
+  target_recall: 0.80               # we want to catch at least 80 % of failing students
