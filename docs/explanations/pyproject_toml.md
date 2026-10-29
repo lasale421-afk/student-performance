@@ -16,10 +16,11 @@ build-backend = "setuptools.build_meta"
 
 - **What:** tells `pip` which tool builds our package. Here it is `setuptools`.
 - **Why setuptools:** it is the most common backend, and pip installs it automatically. `>=68` is
-  a version that fully supports PEP 621 metadata and `src/` layouts. We do not pin it exactly
+  a version that fully supports PEP 621 metadata and `src/` layouts **[from prior knowledge, to
+  verify]**. In practice, `pip install -e .` worked here and on Python 3.10, 3.11 and 3.12. We do not pin it exactly
   because it is only a build tool, not a runtime library of the project.
 - **Without it:** pip would fall back to an old legacy mode, and `pip install -e .` could fail or
-  behave differently between machines.
+  behave differently between machines **[from prior knowledge, to verify]**.
 
 ## Block 2: project metadata
 

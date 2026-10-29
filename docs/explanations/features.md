@@ -47,14 +47,14 @@ fitted object between models would mix their statistics.
 
 - `SimpleImputer(strategy="median")` replaces a missing number with the **median of the training
   data**.
-  - **Why the median:** it is robust to extreme values. `absences` has a few very large values,
-    which would pull the mean up.
+  - **Why the median:** it is robust to extreme values. `absences` has a few very large values
+    (real data: median 2, mean 3.7, max 32), which would pull the mean up.
   - **Why keep an imputer if the dataset has no missing values:** a new student sent to `predict`
     may have an empty field. Without the imputer, scikit-learn would crash on `NaN`. It costs
     nothing when there is nothing to fill.
 - `StandardScaler()` turns each column into (value − mean) / std, learned on the training data.
   - **Why:** k-NN uses distances, and SVM and logistic regression use regularisation that
-    punishes large coefficients. Without scaling, `absences` (0 to 30) would dominate `studytime`
+    punishes large coefficients. Without scaling, `absences` (0 to 32) would dominate `studytime`
     (1 to 4) only because of its units. Scaling also makes logistic regression coefficients
     comparable with each other, which helps the interpretation.
 - The order matters: we impute first, because the scaler cannot handle `NaN`.
@@ -77,8 +77,8 @@ fitted object between models would mix their statistics.
   order.
 - `handle_unknown="ignore"`: a category never seen in training (for example a typo in a JSON
   case) becomes all zeros instead of crashing the prediction.
-- `sparse_output=False`: the output is a normal dense array. With only about 60 columns, the
-  memory gain of a sparse matrix is useless, and dense arrays are easier to inspect and test.
+- `sparse_output=False`: the output is a normal dense array. With only 56 columns after encoding
+  (checked on the real training set), the memory gain of a sparse matrix is useless, and dense arrays are easier to inspect and test.
 
 ## Putting the branches together
 

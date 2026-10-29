@@ -92,10 +92,11 @@ reads the project's `config.yaml`. It returns a `Config`.
 ```
 
 - `with open(...)` closes the file automatically, even if an error happens.
-- `encoding="utf-8"` gives the same result on Windows, whose default encoding differs.
+- `encoding="utf-8"` gives the same result on Windows, whose default encoding differs **[from
+  prior knowledge, to verify]**.
 - `yaml.safe_load` only builds plain Python types (dict, list, str, int...). **Why not
   `yaml.load`:** it can create arbitrary Python objects, which is a security risk if the file is
-  edited by someone else.
+  edited by someone else **[from prior knowledge, to verify]**.
 
 ```python
     root = Path(path).resolve().parent

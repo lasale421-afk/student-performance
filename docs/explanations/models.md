@@ -58,7 +58,8 @@ This dict is used by `cross_validate` to compute all five metrics in one go.
 - `recall`, `precision`, `f1`: computed with the default threshold of 0.5. The threshold is tuned
   in a later phase.
 - **Why `make_scorer(precision_score, zero_division=0)`:** the Dummy model never predicts
-  "fail", so precision = 0/0. The plain string `"precision"` would print a warning on every fold.
+  "fail", so precision = 0/0. The plain string `"precision"` prints an `UndefinedMetricWarning` on
+  every fold. We checked this: 5 warnings for 5 folds.
   With `zero_division=0` we decide on purpose that "no positive prediction" means precision 0.
 
 ## `build_pipeline`
@@ -86,8 +87,10 @@ def make_cv(config: Config) -> StratifiedKFold:
 
 - `StratifiedKFold`: every fold keeps the fail rate of about 15 %. With a plain `KFold`, a fold
   could get very few fails, and recall on that fold would be meaningless.
-- `shuffle=True`: rows are mixed before cutting the folds. The CSV is ordered by school, so
-  without shuffling, a fold could contain only one school.
+- `shuffle=True`: rows are mixed before cutting the folds. The downloaded CSV is ordered by
+  school: rows 0–422 are GP and rows 423–648 are MS (checked). Without shuffling, a fold could
+  contain only one school. (The train/test split already shuffles, but shuffling here does not
+  depend on that.)
 - `random_state=seed`: the same folds every run.
 - **Why a function used by everyone:** the project rule is that all models are compared under
   the *same* CV. A single function that builds the splitter guarantees identical folds.
@@ -112,10 +115,14 @@ The function takes **only the training set**. The test set is never passed here.
   - **Why:** it is the score of "doing nothing". Any real model must beat it. Its recall of 0
     shows clearly why accuracy would be misleading here.
 - `LogisticRegression` with the default settings (L2, C = 1) is the simplest real model.
-  - `max_iter=1000`: the default of 100 iterations can stop before the solver converges, which
-    gives a `ConvergenceWarning`.
-  - `random_state`: our single seed. It has no effect with the default solver, but it keeps the
-    rule "one seed everywhere".
+  - `max_iter=1000`: a safety margin. The default of 100 iterations *can* stop before the solver
+    converges, which gives a `ConvergenceWarning`. **On our scaled data, the default gave no
+    warning (we checked)**, so 1000 changes nothing today. It protects the tuning phase, where a
+    weaker regularisation (a large C) needs more iterations **[from prior knowledge, to verify
+    in Phase 2]**.
+  - `random_state`: our single seed. It has no effect with the default solver (lbfgs): we fitted
+    with two different seeds and got identical coefficients. We keep it for the rule "one seed
+    everywhere".
   - **No `class_weight` yet, on purpose:** this is the *untuned* baseline. Handling the imbalance
     (`class_weight="balanced"`) is part of the tuning phase.
 
