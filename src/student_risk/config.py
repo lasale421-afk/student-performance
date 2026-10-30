@@ -24,6 +24,10 @@ class Config:
         test_size: Fraction of students kept for the final test.
         cv_splits: Number of StratifiedKFold folds.
         target_recall: Minimum recall wanted when choosing the threshold.
+        tradeoff_recalls: Recall targets compared in the threshold trade-off table.
+        reports_dir: Absolute path of the folder for result tables.
+        model_path: Absolute path of the saved model file (joblib).
+        grids: One GridSearchCV parameter grid per model name.
     """
 
     random_seed: int
@@ -35,6 +39,10 @@ class Config:
     test_size: float
     cv_splits: int
     target_recall: float
+    tradeoff_recalls: list[float]
+    reports_dir: Path
+    model_path: Path
+    grids: dict[str, dict[str, list]]
 
 
 def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
@@ -60,4 +68,8 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
         test_size=raw["split"]["test_size"],
         cv_splits=raw["cv"]["n_splits"],
         target_recall=raw["threshold"]["target_recall"],
+        tradeoff_recalls=list(raw["threshold"]["tradeoff_recalls"]),
+        reports_dir=root / raw["paths"]["reports_dir"],
+        model_path=root / raw["paths"]["model_path"],
+        grids=raw["grids"],
     )

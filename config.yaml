@@ -17,3 +17,25 @@ cv:
 
 threshold:
   target_recall: 0.80               # we want to catch at least 80 % of failing students
+  tradeoff_recalls: [0.70, 0.80, 0.90]  # other targets shown in the trade-off table
+
+paths:
+  reports_dir: reports              # CSV results written by the training run
+  model_path: models/model.joblib   # saved model + threshold (written by train)
+
+# Hyperparameter grids for GridSearchCV, one per model. The "clf__" prefix targets the
+# step named "clf" in the Pipeline; "clf__estimator__" goes one level deeper, into the
+# LinearSVC wrapped by CalibratedClassifierCV. null in YAML is None in Python.
+grids:
+  logreg_l2:
+    clf__C: [0.001, 0.01, 0.1, 1.0, 10.0]    # inverse regularisation strength, log scale
+    clf__class_weight: [null, balanced]      # balanced = rare fails count more in the loss
+  logreg_l1:
+    clf__C: [0.001, 0.01, 0.1, 1.0, 10.0]
+    clf__class_weight: [null, balanced]
+  linear_svm:
+    clf__estimator__C: [0.001, 0.01, 0.1, 1.0, 10.0]
+    clf__estimator__class_weight: [null, balanced]
+  knn:
+    clf__n_neighbors: [5, 11, 21, 31, 41, 51]  # odd values: no tied votes between 2 classes
+    clf__weights: [uniform, distance]        # k-NN has no class_weight option
