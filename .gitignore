@@ -15,5 +15,8 @@ dist/
 # Downloaded dataset cache (re-downloaded automatically if missing)
 data/
 
-# Trained models (re-created by the train command)
-models/
+# Trained models (re-created by the train command); the folder itself is kept via .gitkeep
+models/*.joblib
+
+# Course subject (teacher's document, not ours to publish)
+docs/subject.pdf

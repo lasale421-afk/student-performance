@@ -19,13 +19,24 @@ dependencies = [
     "joblib==1.5.2",
     "PyYAML==6.0.3",
     "ucimlrepo==0.0.7",
-]
-
-[project.optional-dependencies]
-dev = [
+    # Test and lint tools are regular dependencies on purpose: the graders run
+    # "pip install -e ." then "pytest" in a fresh environment, with no extra.
     "pytest==9.2.0",
     "ruff==0.17.3",
 ]
+
+[project.optional-dependencies]
+# Only needed to run notebooks/analysis.ipynb and draw the figures:
+# pip install -e ".[notebook]"
+notebook = [
+    "jupyter==1.1.1",
+    "nbconvert==7.17.2",
+    "ipykernel==7.3.0",
+    "matplotlib==3.10.9",
+]
+
+[project.scripts]
+student-risk = "student_risk.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -36,6 +47,11 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.format]
+# Code snippets in the Markdown explanations are copied from the source with their original
+# indentation; the formatter must not rewrite them.
+exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "D"]
