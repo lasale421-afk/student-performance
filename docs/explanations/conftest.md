@@ -20,44 +20,90 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
-from student_risk.config import Config
+from student_risk.config import Config, load_config
 ```
 
-- `Path`: used for the type of `tmp_path`.
-- `numpy`: to generate random fake values.
-- `pandas`: to build the fake DataFrame.
-- `pytest`: for the `@pytest.fixture` decorator.
-- `Config`: we build a config by hand, with no YAML file.
+- `Path` is used for the type of `tmp_path` and of the config file.
+- `numpy` generates random fake values, and `pandas` builds the fake DataFrame.
+- `pytest` provides the `@pytest.fixture` decorator.
+- `yaml` writes a temporary `config.yaml` (Phase 3).
+- `Config` is used for the return type, and `load_config` is **the real loader**, used on the
+  temporary file.
+
+## Fixture `config_path` (Phase 3)
+
+```python
+@pytest.fixture
+def config_path(tmp_path: Path) -> Path:
+    """Write a config.yaml like the real one into a temporary folder and return its path."""
+    settings = {
+        "random_seed": 42,
+        "data": {
+            "uci_id": 320,
+            "cache_path": "cache.csv",
+            "grade_column": "G3",
+            "pass_mark": 10,
+            "leakage_columns": ["G1", "G2"],
+        },
+        "split": {"test_size": 0.25},
+        "cv": {"n_splits": 3},
+        "threshold": {"target_recall": 0.80, "tradeoff_recalls": [0.70, 0.80, 0.90]},
+        "paths": {"reports_dir": "reports", "model_path": "models/model.joblib"},
+        "grids": {  # tiny grids so that the tests stay fast
+            "logreg_l2": {"clf__C": [0.1, 1.0]},
+            "logreg_l1": {"clf__C": [0.1, 1.0]},
+            "linear_svm": {"clf__estimator__C": [0.1, 1.0]},
+            "knn": {"clf__n_neighbors": [3, 5]},
+        },
+    }
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(settings), encoding="utf-8")
+    return path
+```
+
+- `@pytest.fixture` registers the function as a fixture. `tmp_path` is a fixture built into
+  pytest: a new, empty temporary folder for each test.
+- `settings` has **the same structure as the real `config.yaml`**. It is written to
+  `tmp_path/config.yaml` with `yaml.safe_dump`.
+- **Every path is relative**, so `load_config` resolves it inside `tmp_path`:
+  - the cache is `tmp_path/cache.csv`;
+  - the model is `tmp_path/models/model.joblib`;
+  - the reports go to `tmp_path/reports`.
+
+  **No test can write into the real `data/`, `models/` or `reports/`.**
+- **The values that differ from the real config, and why:**
+  - `test_size: 0.25`: with 40 fake rows, this gives exactly 10 test rows.
+  - `n_splits: 3`: fewer folds, because the fake data is tiny.
+  - **Tiny grids**, with 2 values per model: the tests check the *mechanics* (shapes, train-only
+    fitting, reproducibility, CLI), not the quality of the model. This keeps the 19 tests at
+    about 9 seconds.
+  - **`n_neighbors` 3 and 5, not the real 5 to 51:** each CV training fold has only 20 fake rows,
+    and k = 31 or 51 would be more neighbours than rows. We checked that scikit-learn then raises
+    `ValueError: Expected n_neighbors <= n_samples_fit`. Inside GridSearchCV, such fits would
+    only give NaN scores and warnings, which hides the problem **[from prior knowledge, to
+    verify]**.
+- **Why a real file (Phase 3 change):** before Phase 3 this fixture built a `Config(...)` object
+  directly. The CLI tests need a *file* to pass to `--config`, exactly as a user would. Writing
+  the file and reading it back with `load_config` serves both kinds of test. As a bonus, every
+  test now also exercises the real `load_config`.
 
 ## Fixture `config`
 
 ```python
 @pytest.fixture
-def config(tmp_path: Path) -> Config:
-    """Config like the real one, but with the cache in a temporary folder."""
-    return Config(
-        random_seed=42,
-        uci_id=320,
-        cache_path=tmp_path / "cache.csv",
-        grade_column="G3",
-        pass_mark=10,
-        leakage_columns=["G1", "G2"],
-        test_size=0.25,
-        cv_splits=3,
-        target_recall=0.80,
-    )
+def config(config_path: Path) -> Config:
+    """The test settings, read with the real loader. Every path is inside tmp_path."""
+    return load_config(config_path)
 ```
 
-- `@pytest.fixture` registers the function as a fixture named `config`.
-- `tmp_path` is a fixture built into pytest: a new, empty temporary folder for each test.
-  - **Why:** if a test ever wrote the cache, it would write it there, never into the real
-    `data/` folder.
-- The values are the same as `config.yaml`, except for two:
-  - `test_size=0.25`: with only 40 fake rows, this gives exactly 10 test rows.
-  - `cv_splits=3`: fewer folds, because the fake data is tiny.
-- **Without this fixture:** every test would read the real `config.yaml` and depend on its
-  values, so changing the project settings could break tests for no reason.
+- A fixture can use another fixture: pytest first runs `config_path`, then passes its result
+  here.
+- Tests that need the settings object ask for `config`. Tests that need the file (the CLI) ask
+  for `config_path`. In the same test, both refer to the **same** temporary folder.
+- **Without these fixtures:** every test would read the real `config.yaml` and the real `data/`.
+  It would depend on the network, and could overwrite the real model.
 
 ## Fixture `raw_df`
 

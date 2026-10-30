@@ -52,6 +52,10 @@ dependencies = [
     "joblib==1.5.2",
     "PyYAML==6.0.3",
     "ucimlrepo==0.0.7",
+    # Test and lint tools are regular dependencies on purpose: the graders run
+    # "pip install -e ." then "pytest" in a fresh environment, with no extra.
+    "pytest==9.2.0",
+    "ruff==0.17.3",
 ]
 ```
 
@@ -72,19 +76,39 @@ dependencies = [
   - `joblib`: saving and loading the trained model.
   - `PyYAML`: reading `config.yaml`.
   - `ucimlrepo`: downloading the dataset from UCI.
+  - `pytest` (9.2.0, needs Python ≥ 3.10) and `ruff`: the test runner and the linter (see Block 4).
 - **Without pins:** a teacher installing in a year could get pandas 4 and see different
   behaviour or errors.
 
-## Block 4: optional "dev" dependencies
+## Block 4: why pytest and ruff are regular dependencies (Phase 3 change)
+
+**Before Phase 3**, pytest and ruff were in an optional `[dev]` extra, installed with
+`pip install -e ".[dev]"`.
+
+**Why we moved them:** the subject says the teachers run, in a fresh environment,
+`pip install -e .` and then `pytest`, and that a failure costs 2 points. With the extra, the
+plain `pip install -e .` would not install pytest, so `pytest` would fail with "command not
+found". Making them regular dependencies guarantees that the exact graded command sequence works.
+
+**The cost:** a school that only wants predictions also installs a test runner and a linter
+(a few MB). We accept that cost for a course project.
+
+## Block 4b: the `student-risk` command (Phase 3)
 
 ```toml
-[project.optional-dependencies]
-dev = ["pytest==9.2.0", "ruff==0.17.3"]
+[project.scripts]
+student-risk = "student_risk.cli:main"
 ```
 
-- **What:** tools that you only need to *develop* the project, not to *use* it. They are installed
-  with `pip install -e ".[dev]"`.
-- **Why separate:** a school that only wants predictions does not need a test runner or a linter.
+- **What:** when the package is installed, pip creates a small program called `student-risk`
+  that calls the function `main` in `student_risk/cli.py`. It goes in `.venv/bin/` on Linux and
+  macOS, and in `.venv\Scripts\` on Windows.
+- **Why:** the README commands are short and the same on every system:
+  `student-risk train`, `student-risk evaluate`, `student-risk predict --input ...`.
+- **Without it:** you would type `python -m student_risk.cli train`. That still works and is
+  given in the README as a fallback.
+- **Checked:** the command works after `pip install -e .` in fresh environments on Python 3.10
+  and 3.12.
 
 ## Block 5: where the package code is
 
@@ -142,3 +166,47 @@ convention = "google"
 - `convention = "google"`: docstrings use the Google style, with `Args:` and `Returns:` sections.
 - `"tests/*" = ["D"]`: test functions do not need docstrings, because their long names say what
   they check. The file `docs/explanations/test_*.md` explains each one.
+
+## Block 8: formatter exclusion (Phase 2)
+
+```toml
+[tool.ruff.format]
+exclude = ["*.md"]
+```
+
+- **What:** `ruff format` must not touch Markdown files.
+- **Why:** ruff 0.17 also formats Python code blocks inside `.md` files (checked: it wanted to
+  rewrite our docs). Our explanation snippets are copied from the source *with their original
+  indentation*, for example a method shown indented inside its class. The formatter would remove
+  that indentation, and the snippets would no longer match the code.
+- Linting (`ruff check`) of `.py` files is not affected.
+
+## Block 4c: the optional `notebook` extra (notebook phase)
+
+```toml
+[project.optional-dependencies]
+notebook = [
+    "jupyter==1.1.1",
+    "nbconvert==7.17.2",
+    "ipykernel==7.3.0",
+    "matplotlib==3.10.9",
+]
+```
+
+- **What:** extra tools needed only to run `notebooks/analysis.ipynb` and draw the figures.
+  Install them with `pip install -e ".[notebook]"`.
+- **Why optional:** the subject's graded sequence (`pip install -e .`, `pytest`, `train`,
+  `evaluate`, `predict`) does not need Jupyter or matplotlib, which are large. Keeping them out
+  keeps the main install light. We checked: a fresh main install has no matplotlib, and
+  everything works.
+- **What each one is for:**
+  - `jupyter` is the meta-package (notebook interface);
+  - `nbconvert` runs the notebook from the command line (`--execute`);
+  - `ipykernel` is the Python kernel that executes the cells;
+  - `matplotlib` draws the figures (used only by `plots.py`).
+- **Pinned to the newest versions that still support Python 3.10 (checked on PyPI):**
+  - matplotlib 3.11 and ipykernel 7.4 need Python ≥ 3.11, so we use 3.10.9 and 7.3.0;
+  - `ipykernel` is pinned explicitly, otherwise Python 3.12 would get 7.4 and Python 3.10 would
+    get 7.3.
+- **Checked:** the extra installs and the notebook executes in fresh environments on Python 3.10
+  and 3.12.

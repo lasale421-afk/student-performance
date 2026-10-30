@@ -32,11 +32,20 @@ data:
 
 - `uci_id: 320`: the id of "Student Performance" on the UCI repository, used by `fetch_ucirepo`.
   The download has 649 students (checked on the real data).
-  - This is the Portuguese-language course, from the original study: P. Cortez and A. Silva,
-    "Using Data Mining to Predict Secondary School Student Performance", Proceedings of the 5th
-    Future Business Technology Conference (FUBUTEC 2008), Porto, Portugal, pp. 5–12.
-    **[from prior knowledge, to verify]**: the course and the citation details. The downloaded
-    file does not say which course it is.
+  - **Source study:** P. Cortez and A. M. G. Silva, "Using Data Mining to Predict Secondary
+    School Student Performance", Proceedings of the 5th Annual Future Business Technology
+    Conference (FUBUTEC), 2008.
+  - **Checked on the UCI page (Phase 3):**
+    - the title, authors, venue and year above;
+    - the dataset DOI 10.24432/C5TG7T;
+    - the CC BY 4.0 licence;
+    - "# Instances: 649";
+    - that the dataset comes in two files, `student-mat.csv` (Math course) and `student-por.csv`
+      (Portuguese language course).
+  - **Still [from prior knowledge, to verify]:**
+    - that the 649 students are the **Portuguese-language** course. The UCI page does not say
+      which file id 320 returns, and the download does not say either;
+    - the pages "pp. 5–12" and the city "Porto", which are not on the UCI page.
 - `cache_path`: where the downloaded data is saved as a CSV. The path is relative to the project
   root, and `config.py` turns it into an absolute path. The folder `data/` is in `.gitignore`, so
   the dataset is not committed: it is downloaded again automatically on a fresh machine.
@@ -86,10 +95,13 @@ cv:
 ```yaml
 threshold:
   target_recall: 0.80
+  tradeoff_recalls: [0.70, 0.80, 0.90]
 ```
 
-- **What:** when we choose the decision threshold (in a later phase, on out-of-fold
-  predictions), we keep only thresholds where recall ≥ 0.80. Among those, we choose the one with
+- **`tradeoff_recalls` (Phase 2b):** the other recall targets shown next to ours in
+  `reports/threshold_tradeoff.csv`, so the school can see what each target would cost (see
+  `evaluate.md`). Only `target_recall` is used to choose the threshold.
+- **What:** when we choose the decision threshold (on out-of-fold predictions), we keep only thresholds where recall ≥ 0.80. Among those, we choose the one with
   the best precision.
 - **Why we favour recall:**
   - **Recall** = "of all students who really fail, how many did we flag?"
@@ -102,3 +114,72 @@ threshold:
     flooded with false alarms.
 - **Why 0.80 and not 0.95:** pushing recall close to 1 usually means flagging almost everyone,
   and then the tool is useless. "4 out of 5 failing students caught" is a stated, defensible goal.
+
+## Block 6: paths (Phase 2)
+
+```yaml
+paths:
+  reports_dir: reports
+  model_path: models/model.joblib
+```
+
+- **`reports_dir`:** the folder where `student-risk train` writes its result tables:
+  `baseline.csv`, `model_comparison.csv`, `threshold_report.csv` and `threshold_tradeoff.csv`.
+- **`model_path` (Phase 3):** where `train` saves the model and its threshold, and where
+  `evaluate` and `predict` load them.
+  - `Trainer.save` creates `models/` if it is missing.
+  - The `.joblib` file is git-ignored, and only `models/.gitkeep` is committed.
+- **Why here:** this follows the "no hard-coded paths" rule. The path is relative to the
+  project root, and `config.py` makes it absolute. The code creates the folder if it is missing.
+
+## Block 7: hyperparameter grids (Phase 2, widened in Phase 2b)
+
+```yaml
+grids:
+  logreg_l2:
+    clf__C: [0.001, 0.01, 0.1, 1.0, 10.0]
+    clf__class_weight: [null, balanced]
+  logreg_l1:
+    clf__C: [0.001, 0.01, 0.1, 1.0, 10.0]
+    clf__class_weight: [null, balanced]
+  linear_svm:
+    clf__estimator__C: [0.001, 0.01, 0.1, 1.0, 10.0]
+    clf__estimator__class_weight: [null, balanced]
+  knn:
+    clf__n_neighbors: [5, 11, 21, 31, 41, 51]
+    clf__weights: [uniform, distance]
+```
+
+- **What:** one grid per model, given as is to `GridSearchCV`. GridSearchCV tries every
+  combination, each on 5 folds:
+  - 5 × 2 = 10 per linear model;
+  - 6 × 2 = 12 for k-NN.
+- **Why in the config:** the course's suggested layout puts the grids in `config.yaml`. Changing
+  a grid then needs no code change.
+- **The names:**
+  - `clf__C` means "parameter `C` of the pipeline step named `clf`".
+  - For the SVM, the step `clf` is a `CalibratedClassifierCV`, so we go one level deeper:
+    `clf__estimator__C` is the `C` of the `LinearSVC` inside it.
+  - A wrong name makes GridSearchCV raise an "Invalid parameter" error.
+- `null` is YAML for Python `None`.
+- **`C` values `[0.001, 0.01, 0.1, 1, 10]`:** a log scale, because C acts multiplicatively.
+  Going from 1 to 2 matters much less than going from 0.01 to 1. Five values cover very strong
+  to weak regularisation while keeping the search small. See `models_overview.md` for what C does.
+- **`class_weight: [null, balanced]`:** fails are only 15 %. `balanced` makes each fail count
+  more in the loss (about 5.5 passes, see `models_overview.md`). We let cross-validation decide
+  whether it helps, instead of assuming it does.
+- **`n_neighbors: [5, 11, 21, 31, 41, 51]`:** odd numbers avoid tied votes. The range goes
+  from local (5) to smooth (51), around the rule of thumb √415 ≈ 20 **[from prior knowledge, to verify:
+  the rule of thumb]**.
+- **`weights: [uniform, distance]`:** all neighbours equal, or closer neighbours count more.
+- **k-NN has no `class_weight`:** the scikit-learn class has no such parameter. The imbalance is
+  handled by the threshold instead.
+- **Why the grids were widened (Phase 2b, our results):** with the first grids (C from 0.01,
+  k up to 31), three models chose an **edge** value: C = 0.01 for `logreg_l2` and `linear_svm`,
+  and k = 31 for `knn`. When the best value sits at the edge, a better one may lie outside the
+  grid. So we added C = 0.001 and k = 41, 51. After widening:
+  - `logreg_l2` (C = 0.01) and `knn` (k = 31) kept the same values. These are now inside the
+    grid, so they are real optima.
+  - `linear_svm` moved to C = 0.001 (`balanced`), again the lowest value. We did not widen
+    further (see `models.md`).
+  - The chosen model and the threshold did not change.

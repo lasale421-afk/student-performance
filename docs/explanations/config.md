@@ -61,6 +61,10 @@ class Config:
     test_size: float
     cv_splits: int
     target_recall: float
+    tradeoff_recalls: list[float]
+    reports_dir: Path
+    model_path: Path
+    grids: dict[str, dict[str, list]]
 ```
 
 - `@dataclass` turns the annotated class attributes into constructor arguments:
@@ -113,6 +117,10 @@ on the folder you run the command from.
         cache_path=root / raw["data"]["cache_path"],
         ...
         target_recall=raw["threshold"]["target_recall"],
+        tradeoff_recalls=list(raw["threshold"]["tradeoff_recalls"]),
+        reports_dir=root / raw["paths"]["reports_dir"],
+        model_path=root / raw["paths"]["model_path"],
+        grids=raw["grids"],
     )
 ```
 
@@ -123,3 +131,22 @@ on the folder you run the command from.
 - `list(...)` around `leakage_columns` guarantees a real Python list.
 - **If a key is missing** in the YAML, you get a `KeyError` with the key's name right at startup.
   This is the behaviour we want: fail early and clearly.
+
+## Phase 2 additions
+
+- `reports_dir: Path`: the folder for result CSVs. Like `cache_path`, it is built as
+  `root / ...`, so it is absolute.
+- `grids: dict[str, dict[str, list]]`: the type hint reads "a dict from a model name to (a dict
+  from a parameter name to a list of values)". For example:
+
+  ```python
+  config.grids["knn"] == {"clf__n_neighbors": [5, 11, 21, 31], "clf__weights": ["uniform", "distance"]}
+  ```
+
+  It is copied as is from YAML (`raw["grids"]`), because it already has exactly the shape
+  `GridSearchCV(param_grid=...)` expects.
+- `tradeoff_recalls: list[float]` (Phase 2b): the recall targets compared in
+  `reports/threshold_tradeoff.csv`. `list(...)` guarantees a real list, as for
+  `leakage_columns`.
+- `model_path: Path` (Phase 3): the absolute path of the saved model file. It is built with
+  `root / ...` like the other paths, so the tests can point it into a temporary folder.

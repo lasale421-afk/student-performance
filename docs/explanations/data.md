@@ -2,8 +2,8 @@
 
 **Role:** everything about the *data*: download it (or read the local copy), clean it, build the
 target `fail`, remove the leaking columns, and split train/test **once**. Its single class,
-`DatasetLoader`, is one of the two main classes of the project. The other is `Trainer`, which
-comes in a later phase.
+`DatasetLoader`, is one of the two main classes of the project. The other is `Trainer`, in
+`models.py`.
 
 ---
 
@@ -145,6 +145,21 @@ class DatasetLoader:
 - `df["G3"] < 10` gives a column of True/False values. `.astype(int)` turns it into 1/0. So
   `fail = 1` means G3 < 10, and **10 itself counts as a pass**.
 - **Why binary:** the school needs a yes/no flag ("help this student"), not a predicted grade.
+- **Special code: students with G3 = 0 (our decision: keep them as `fail = 1`).**
+  - **What the real data shows (checked):** 15 students have G3 = 0, and 8 of them had G2 > 0.
+    A student who had a non-zero grade in period 2 and then exactly 0 at the end probably did
+    not sit the final exam, rather than answering everything wrong **[from prior knowledge, to
+    verify]**.
+  - **Why we keep them as fails:**
+    - For the school, a student who ends the year with 0 did not pass, whatever the reason.
+      Missing the final exam is itself a sign of being at risk, which is exactly what the
+      early-warning tool should catch.
+    - Removing them would also hide a real group of students from the model.
+  - **Cost of this choice:** these students may be "different" fails (dropping out rather than
+    weak grades), which could make the pattern harder to learn.
+  - **How we will check it:** in the notebook, a sensitivity check compares the CV scores with
+    and without the G3 = 0 students. It uses **cross-validation on the training set only, never
+    the test set**.
 - **Imbalance:** about 15 % of students fail, so `fail = 1` is the minority, positive class. This
   is why we use stratification and metrics such as recall, precision and average precision, not
   just accuracy. A model that always says "pass" would already be about 85 % accurate.
