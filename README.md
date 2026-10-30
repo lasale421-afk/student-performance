@@ -190,5 +190,5 @@ student-risk/
   plus Jupyter, nbconvert, ipykernel and matplotlib for the notebook. Their versions are pinned in
   `pyproject.toml`.
 - **Methods:** the Wilson score interval for proportions (E. B. Wilson, 1927) is used for the
-  confidence intervals on recall **[from prior knowledge, to verify: the reference]**.
+  confidence intervals on recall.
 - **Generative AI:** an AI coding assistant was used; see `AI_USAGE.md` for what it did.
