@@ -1,291 +1,81 @@
-# AI usage declaration
+# AI Usage Declaration
 
-Authors: Mohamed Reda Zarrouk and Georgy Salameh.
+**Project:** Student Risk Prediction  
+**Authors:** Mohamed Reda Zarrouk and Georgy Salameh  
+**AI assistant:** Claude Code (Claude Opus 5.5, Anthropic)
 
-We used an AI coding assistant (Claude Code, model Claude Opus 5.5, by Anthropic) during this
-project. This file lists what it generated, phase by phase, so that it can be declared honestly.
+## 1. Overview
 
-**How we worked:**
+AI assistance was used throughout the project, mainly to support implementation, testing, documentation, and the analysis of results. The project direction was not delegated entirely to the assistant: we defined the problem and objectives, selected the dataset, specified the modelling approach and evaluation requirements, and guided the assistant's work according to those decisions.
 
-- We wrote the specification: the dataset, the target, the leakage rule, the cost of errors,
-  the ML and Python rules, and the phase plan.
-- We answered the assistant's questions: the Python version, the threshold goal, the
-  explanation scope, the virtual environment, and the version checks.
-- The assistant generated the code and the documents. We read every file, ran the tests, and
-  studied the line-by-line explanations in `docs/explanations/` to be able to defend each line.
+We reviewed the generated code and documentation, ran the tests and project commands, checked results against the data where possible, and used explanations of the implementation to understand how the project works. Our aim was to use AI as a development assistant while retaining responsibility for the project's design, validation, and final decisions.
 
-## Changes made by the students
+## 2. Our decisions and contribution
 
-<!-- TO BE FILLED BY MOHAMED REDA ZARROUK AND GEORGY SALAMEH. Not written by the AI assistant. -->
+The following elements were defined or directed by us:
 
-## Marking of unverified statements
+- The problem to investigate, the project objectives, and the dataset to use.
+- The target definition and the rule to exclude `G1` and `G2` to avoid target leakage.
+- The choice of models to compare and the evaluation priorities, including prioritising recall and setting a target recall of at least 0.80.
+- The model-comparison procedure, cross-validation requirements, hyperparameter grids, model-selection rule, and threshold-selection criteria.
+- The requirements for the command-line interface, prediction workflow, tests, and analysis notebook.
+- Review of the assistant's output, requests for corrections or additional checks, and decisions about which changes to keep.
 
-In `docs/`, a statement that comes from the assistant's prior knowledge, and not from the real
-download or from `docs/subject.pdf`, is marked **[from prior knowledge, to verify]**. We must
-check each marked statement before the defense.
+AI assistance was used to help clean and prepare the data, implement the Python code, create tests, document the project, and examine the results. For the implementation, we provided requirements and constraints intended to keep the code coherent with the project design. We also asked for independent checks of parts of the model comparison and analysis.
 
-**How to find them:**
+## 3. Use of AI during development
+
+### Data preparation and baseline
+
+The assistant helped implement the project structure, configuration, dataset loading and preparation, feature preprocessing, baseline models, and initial tests. We specified the dataset, target, leakage rule, Python requirements, and evaluation priorities.
+
+We then asked the assistant to check factual statements against the downloaded data. During this review, two statements were corrected: the default model configuration did not produce a `ConvergenceWarning` on our data, and the preprocessing produced 56 one-hot encoded columns. The remaining statements that had not been independently verified were marked in the documentation. A citation to Cortez and Silva (2008) was also added.
+
+### Model comparison and threshold selection
+
+The assistant helped implement the model-training and evaluation workflow, including cross-validation, hyperparameter search, threshold selection, and reports. We specified the models to compare, the evaluation metric used for model selection, the one-standard-deviation selection rule, and the threshold objective: achieve recall of at least 0.80 and then favour the best precision among eligible thresholds.
+
+After reviewing the initial results, we requested wider hyperparameter grids and a threshold trade-off report for recall targets of 0.70, 0.80, and 0.90. The comparison was rerun and the associated reports and documentation were updated. We also requested tests for invalid threshold inputs.
+
+### Prediction interface, tests, and documentation
+
+The assistant helped implement model saving and loading, prediction for a new case, command-line commands (`train`, `evaluate`, and `predict`), and the README. It also generated and expanded automated tests and wrote explanations of the source files and tests.
+
+We specified the expected behaviour and asked for tests covering invalid inputs and common failure cases. We ran the tests and project commands, including a fresh-environment check, rather than relying only on the assistant's description of what the code should do.
+
+### Analysis notebook and figures
+
+The analysis notebook was developed collaboratively with AI assistance. The assistant helped organise the notebook, add sensitivity and group-level analyses, and create figures for the precision-recall curve, confusion matrix, and model coefficients.
+
+A constraint we set was that the test set had already been used for evaluation and should not be used to make further modelling changes. After the notebook was run, we checked that the saved report files and test-set results had not changed. The notebook's sensitivity and group-level results were based on the training data and out-of-fold predictions as documented in the project.
+
+## 4. Validation and checks
+
+We did not treat generated output as automatically correct. We used tests, execution, and targeted reviews to check the implementation and its results.
+
+The checks documented during development included:
+
+- Automated tests for data preparation, features, evaluation, model training, saving and loading, and the command-line interface.
+- Verification of selected dataset facts against the downloaded data and the dataset reference.
+- Tests for invalid inputs and expected error behaviour.
+- Fresh-environment checks on Python 3.10.19 and Python 3.12.3, following the installation and usage steps in the README.
+- Re-running training, evaluation, prediction, and notebook execution to check reproducibility.
+- Comparing report files and evaluation results before and after notebook analysis to confirm that the model and threshold had not been changed.
+
+At the final documented check, 19 automated tests passed. In the fresh environments, the documented training, evaluation, and prediction commands succeeded. The held-out test results recorded during that check were ROC-AUC 0.778 and average precision 0.346. At a threshold of 0.140, precision was 0.300, recall was 0.750, and F1 was 0.429. These figures are reported as evaluation results, not as evidence that the model meets the target recall of 0.80 on the test set.
+
+## 5. Remaining verification
+
+Some explanatory statements were based on the assistant's prior knowledge rather than directly confirmed by the downloaded data or the course material. These were marked in the documentation with **[from prior knowledge, to verify]** so that they could be checked before the project defence.
+
+To locate these statements in the documentation, run:
 
 ```bash
 grep -rn "prior knowledge" docs/
 ```
 
-**Which statements are not marked:** facts that were checked by running code, such as dataset
-counts, correlations, column ranges and warnings. The docs say where each one was checked.
+## 6. Summary
 
-## Phase 1: setup, data, features, baseline
+AI was a substantial part of the implementation and documentation process. We used it to accelerate coding, testing, and analysis, while providing the project objectives, dataset choice, modelling requirements, evaluation rules, and implementation constraints. We reviewed the output, requested corrections and checks, executed the project, and examined the resulting code and explanations so that we could understand and justify the work.
 
-Generated by the assistant:
-
-- Project setup: `.gitignore`, `pyproject.toml`, `config.yaml`, and the `src/student_risk/`
-  layout.
-  - The pinned versions are the newest releases that support Python 3.10. The assistant checked
-    them on PyPI, then installed the project and ran the tests on Python 3.10, 3.11 and 3.12 in
-    temporary environments that were deleted afterwards.
-- `src/student_risk/__init__.py` and `config.py`: the `Config` dataclass and the YAML loader.
-- `src/student_risk/data.py`: the `DatasetLoader` class (download and cache, clean, target,
-  split).
-- `src/student_risk/features.py`: the preprocessing `ColumnTransformer`.
-- `src/student_risk/models.py`: the metrics, the pipeline builder, the shared CV splitter, and the
-  baseline comparison (Dummy and LogisticRegression).
-- Tests: `tests/conftest.py`, `tests/test_data.py` and `tests/test_features.py` (5 tests).
-- Explanations: every file in `docs/explanations/`, for the source files, the tests,
-  `pyproject.toml` and `config.yaml`.
-- This file.
-
-Correction after review:
-
-- The assistant first wrote `data.py` and `features.py` from its prior knowledge of the dataset
-  and of the `ucimlrepo` API. It then checked them against the real download.
-- After we asked, it:
-  - checked the factual claims in the docs against the real data;
-  - fixed two wrong claims: no `ConvergenceWarning` with the default `max_iter` on our data, and
-    56 one-hot columns, not "about 60";
-  - marked the remaining unverified claims;
-  - added the Cortez & Silva (2008) citation.
-
-Changes after reading the course subject (`docs/subject.pdf`), decided by us and applied by the
-assistant:
-
-- `.gitignore`: the subject PDF is ignored. Only `models/*.joblib` is ignored, and the
-  `models/` folder is kept with a `.gitkeep` file.
-- `docs/explanations/data.md`: documents our decision to keep the G3 = 0 students as fails.
-
-Decisions taken by us (the students):
-
-- The task, the target definition and the leakage rule (drop G1/G2).
-- Recall first, with target recall ≥ 0.80 as a config parameter.
-- Python ≥ 3.10, and a venv in `.venv`.
-- Caching the dataset to a git-ignored CSV, and synthetic data for the tests.
-
-Small technical choices proposed by the assistant and approved by us:
-
-- `config.yaml` read by `config.py`.
-- Keeping the imputer even though the data has no missing values.
-
-Choices the assistant made and reported to us:
-
-- test size 0.2;
-- 5 CV folds;
-- median and most-frequent imputation;
-- column selection by dtype;
-- a dense one-hot output;
-- a `[dev]` extra for pytest and ruff;
-- an untuned baseline without `class_weight`;
-- ruff rules N803/N806 ignored, to keep `X`.
-
-## Phase 2: model comparison, Trainer, threshold
-
-Generated by the assistant:
-
-- `config.yaml`: `paths.reports_dir` and the 4 hyperparameter grids. `config.py` gained the
-  matching `reports_dir` and `grids` fields.
-- `src/student_risk/evaluate.py`: `SCORING` (moved from `models.py`), `choose_threshold`, and
-  `threshold_report`.
-- `src/student_risk/models.py`:
-  - the pipeline step is renamed `"clf"`;
-  - the `Trainer` class (compare with GridSearchCV, select the best model, choose the threshold
-    on out-of-fold probabilities);
-  - `summarise_search`;
-  - `main()` now writes `reports/baseline.csv`, `reports/model_comparison.csv` and
-    `reports/threshold_report.csv`.
-- Tests: `tests/test_evaluate.py` (2 tests) and `tests/test_models.py` (2 tests). `conftest.py`
-  gained tiny grids. 9 tests in total.
-- Explanations: `evaluate.md`, `models.md` (rewritten), `models_overview.md`,
-  `test_evaluate.md` and `test_models.md`, plus Phase 2 sections in `config_yaml.md`,
-  `config.md` and `conftest.md`.
-
-Specified by us (Phase 2 prompt):
-
-- the 4 models;
-- the `clf` step name;
-- the same StratifiedKFold for every model;
-- refit on average precision with `return_train_score=True`;
-- the contents of the grids;
-- choosing the best model by mean CV AP with the one-std rule;
-- the threshold rule (recall ≥ 0.80, then the best precision, with a fallback);
-- the 4 tests;
-- the docs.
-
-Choices the assistant made and reported to us:
-
-- `liblinear` for L1;
-- `CalibratedClassifierCV(cv=3)` with `LinearSVC(max_iter=10000)`;
-- the simplicity order L2 < L1 < linear SVM < k-NN;
-- the "one std" margin taken from the top model;
-- precision kept in the scoring;
-- ties in `choose_threshold` resolved towards the lower threshold;
-- the fallback test uses `min_recall=1.5`, because any target ≤ 1 is always reachable.
-
-Checked by running code:
-
-- the claims marked "checked" in the docs;
-- every "make it fail on purpose" change in the test docs.
-
-## Phase 2b: small fixes
-
-Requested by us, applied by the assistant:
-
-1. **Widened grids** in `config.yaml`: C from 0.001 to 10, and k-NN up to 51.
-   - The comparison was re-run, and the CSVs and docs were updated.
-   - The chosen model (`logreg_l2`, C = 0.01) and the threshold (0.14) did not change.
-   - `linear_svm` moved to C = 0.001 (balanced).
-2. **`choose_threshold`** now raises `ValueError` when `min_recall` is not in (0, 1]. The
-   unreachable fallback and its test were removed, and a parametrized test (3 cases) checks the
-   error.
-3. **Trade-off table** for recall targets 0.70, 0.80 and 0.90, on out-of-fold predictions only.
-   - It is computed by `evaluate.threshold_tradeoff` and `Trainer.threshold_tradeoff`, and saved
-     to `reports/threshold_tradeoff.csv`.
-   - The targets live in `config.yaml` (`threshold.tradeoff_recalls`), with a matching field in
-     `config.py`.
-
-Choices the assistant made and reported to us:
-
-- the trade-off targets are stored in `config.yaml` rather than in the code;
-- the test values 0.0, −0.2 and 1.5;
-- `ruff format` excludes `*.md` (from Phase 2, documented in `pyproject_toml.md`).
-
-## Phase 3: prediction, CLI, README, fresh-environment check
-
-Generated by the assistant:
-
-- `src/student_risk/predict.py`:
-  - `read_case` reads one JSON case and checks it. Missing, unknown or non-numeric fields and
-    invalid JSON each give a clear `ValueError`.
-  - `predict_new_case` loads the saved model and threshold, and returns the probability and the
-    decision.
-- `src/student_risk/cli.py`: argparse commands `train`, `evaluate` and `predict --input`, plus a
-  global `--config` option. Errors are printed on stderr with exit code 1.
-- `src/student_risk/models.py`:
-  - `Trainer.save` (joblib, creates `models/`) and `Trainer.load` (class method);
-  - the Trainer now records `feature_columns` and `numeric_columns`;
-  - `main()` was removed: its work moved to `student-risk train`.
-- `src/student_risk/evaluate.py`: `final_scores`, used once by `evaluate` on the test set.
-- `config.yaml` / `config.py`: `paths.model_path`.
-- `pyproject.toml`:
-  - the `[project.scripts]` entry `student-risk`;
-  - pytest and ruff moved from the `[dev]` extra to the regular dependencies, so that the graded
-    sequence `pip install -e .` then `pytest` works.
-- `examples/new_case.json`: an invented student, not a row of the dataset.
-- `README.md`.
-- Tests:
-  - `tests/conftest.py` now writes a temporary `config.yaml`, read with the real loader;
-  - `tests/test_cli.py` has 5 test cases;
-  - `tests/test_models.py` gained a save/load roundtrip test.
-
-  17 tests in total.
-- Explanations: `predict.md`, `cli.md`, `test_cli.md` and `new_case_json.md`, plus Phase 3
-  updates to `models.md`, `evaluate.md`, `config.md`, `config_yaml.md`, `conftest.md`,
-  `test_models.md`, `pyproject_toml.md` and `data.md`.
-
-Checked by running code:
-
-- The README credits were checked against the UCI dataset page and its API: title, authors,
-  venue, year, DOI, CC BY 4.0, and 649 instances. Pages 5–12, the city, and the link between 649
-  students and the Portuguese course are still marked "to verify".
-- Every "make it fail on purpose" change for the new tests.
-- The error messages: missing model, missing file, invalid JSON, a list instead of an object, and
-  null values.
-- **Fresh-environment check** on Python 3.12.3 (`python -m venv`) and Python 3.10.19 (temporary
-  environment made with uv, deleted afterwards). Both followed the README exactly, in a copy of
-  the repository without `data/`, `models/model.joblib` or `.venv`:
-  - `pip install -e .`, `pytest` (17 passed), `student-risk train`, `student-risk evaluate` and
-    `student-risk predict --input examples/new_case.json` all succeeded;
-  - the results were identical on both versions.
-- **Test set used once, for this check only:**
-  - ROC-AUC 0.778, average precision 0.346;
-  - at threshold 0.140: precision 0.300, recall 0.750, F1 0.429, 38.5 % of students flagged;
-  - confusion matrix: TN 75, FP 35, FN 5, TP 15.
-
-  No modelling choice was changed afterwards.
-
-Choices the assistant made and reported to us:
-
-- a global `--config` option (needed for offline CLI tests);
-- the exit code 1 for user errors;
-- unknown fields are rejected and not ignored;
-- `null` is accepted and imputed;
-- numeric fields are type-checked;
-- the profile of the example student;
-- the function is named `final_scores`, not `test_scores`.
-
-## Notebook phase: analysis notebook, sensitivity and fairness checks, figures
-
-**Constraint given by us:** the test set had already been used once, so nothing in the
-modelling (model, grids, threshold, features) could change.
-
-**Checked:** after every notebook run, the four `reports/*.csv` files were byte-for-byte
-identical (md5), and the test results were unchanged:
-
-- AP 0.346, recall 0.750;
-- TN 75, FP 35, FN 5, TP 15.
-
-Generated by the assistant:
-
-- **`notebooks/analysis.ipynb`**, 13 sections.
-  - It calls the package and reads `reports/*.csv`.
-  - It asserts that the recomputed threshold and threshold tables equal the saved ones.
-  - It was produced with a generator script that is not in the repository, formatted with
-    `ruff format`, and executed with `jupyter nbconvert --execute --inplace`.
-- **`src/student_risk/evaluate.py`:** `wilson_interval`, `group_report` and
-  `coefficient_table`.
-- **`src/student_risk/plots.py`** (new module, matplotlib only): the precision-recall curve,
-  the confusion matrix and the coefficient chart. The figures go in `reports/figures/`.
-- **`pyproject.toml`:** the optional `notebook` extra. Its versions are pinned to the newest
-  releases that support Python 3.10.
-- **Tests:** 2 new tests in `tests/test_evaluate.py` (Wilson and per-group report), 19 in total.
-  The Wilson test found a floating-point bug (−2.8e-17 instead of 0), which was fixed by clipping
-  the bounds.
-- **Explanations:** `notebook.md` and `plots.md`, plus additions to `evaluate.md`,
-  `test_evaluate.md` and `pyproject_toml.md`. The README and the test counts in `conftest.md` and
-  `test_cli.md` were updated.
-
-Results reported, with no change to the model:
-
-- **G3 = 0 sensitivity** (training CV, same hyperparameters):
-  - ROC-AUC 0.803 → 0.805;
-  - AP 0.500 → 0.464 (the fail rate also changes, 15.4 % → 13.6 %);
-  - 9 of the 11 G3 = 0 training students are flagged out-of-fold.
-- **Fairness** (training set, out-of-fold):
-  - recall F 0.75 / M 0.85, and flagged F 35.0 % / M 45.8 %;
-  - recall GP 0.68 / MS 0.86, and flagged GP 23.3 % / MS 70.0 %.
-
-  The groups have only 25 to 55 fails, so the 95 % intervals overlap.
-
-**Fresh-environment check, repeated** on Python 3.12.3 and 3.10.19:
-
-- the main install had no matplotlib;
-- 19 tests passed;
-- `train` reproduced all four CSVs byte for byte;
-- `evaluate` and `predict` gave the same numbers as before;
-- the `notebook` extra installed and the notebook executed.
-
-The temporary environments were deleted.
-
-Choices the assistant made and reported to us:
-
-- the helpers live in the package rather than in the notebook;
-- figures live in a separate `plots.py`, so the main install needs no matplotlib;
-- `ipykernel` is pinned explicitly;
-- if no model exists, the notebook runs the package's `train` step;
-- the fairness groups are sex and school, with Wilson intervals per group.
+We remain responsible for the final project and for being able to explain its design, implementation, limitations, and results.
