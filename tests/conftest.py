@@ -5,24 +5,43 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
-from student_risk.config import Config
+from student_risk.config import Config, load_config
 
 
 @pytest.fixture
-def config(tmp_path: Path) -> Config:
-    """Config like the real one, but with the cache in a temporary folder."""
-    return Config(
-        random_seed=42,
-        uci_id=320,
-        cache_path=tmp_path / "cache.csv",
-        grade_column="G3",
-        pass_mark=10,
-        leakage_columns=["G1", "G2"],
-        test_size=0.25,
-        cv_splits=3,
-        target_recall=0.80,
-    )
+def config_path(tmp_path: Path) -> Path:
+    """Write a config.yaml like the real one into a temporary folder and return its path."""
+    settings = {
+        "random_seed": 42,
+        "data": {
+            "uci_id": 320,
+            "cache_path": "cache.csv",
+            "grade_column": "G3",
+            "pass_mark": 10,
+            "leakage_columns": ["G1", "G2"],
+        },
+        "split": {"test_size": 0.25},
+        "cv": {"n_splits": 3},
+        "threshold": {"target_recall": 0.80, "tradeoff_recalls": [0.70, 0.80, 0.90]},
+        "paths": {"reports_dir": "reports", "model_path": "models/model.joblib"},
+        "grids": {  # tiny grids so that the tests stay fast
+            "logreg_l2": {"clf__C": [0.1, 1.0]},
+            "logreg_l1": {"clf__C": [0.1, 1.0]},
+            "linear_svm": {"clf__estimator__C": [0.1, 1.0]},
+            "knn": {"clf__n_neighbors": [3, 5]},
+        },
+    }
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(settings), encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def config(config_path: Path) -> Config:
+    """The test settings, read with the real loader. Every path is inside tmp_path."""
+    return load_config(config_path)
 
 
 @pytest.fixture
