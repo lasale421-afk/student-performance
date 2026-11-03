@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Early warning for students at risk of failing</title>
+<!-- Source of reports/report.pdf. All numbers come from reports/*.csv and notebooks/analysis.ipynb. -->
+<style>
+  @page { size: A4; margin: 17mm 18mm 17mm 18mm; }
+  body { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size: 10pt;
+         line-height: 1.38; color: #111; margin: 0; }
+  h1 { font-size: 17pt; margin: 0 0 2pt 0; }
+  .subtitle { color: #444; margin: 0 0 10pt 0; font-size: 9.5pt; }
+  h2, h3 { break-after: avoid; }
+  h2 { font-size: 12.5pt; margin: 13pt 0 4pt 0; padding-bottom: 2pt; border-bottom: 1px solid #bbb; }
+  h3 { font-size: 10.5pt; margin: 8pt 0 2pt 0; }
+  p { margin: 3pt 0 5pt 0; text-align: justify; }
+  ul { margin: 2pt 0 5pt 0; padding-left: 16pt; }
+  li { margin: 1pt 0; }
+  table { border-collapse: collapse; margin: 4pt 0 6pt 0; font-size: 9pt; width: 100%; }
+  th, td { border-bottom: 1px solid #ccc; padding: 2.5pt 5pt; text-align: right; }
+  th { border-bottom: 1.5px solid #555; background: #f2f2f2; }
+  td:first-child, th:first-child { text-align: left; }
+  tr.chosen td { font-weight: 600; background: #eef4fb; }
+  .caption { font-size: 8.5pt; color: #444; margin: 0 0 8pt 0; text-align: left; }
+  .figrow { display: flex; gap: 10pt; align-items: flex-start; margin: 4pt 0; }
+  .figrow figure { margin: 0; flex: 1; }
+  figure img { width: 100%; }
+  figure figcaption { font-size: 8.5pt; color: #444; }
+  .box { background: #f6f6f6; border-left: 3px solid #2a78d6; padding: 4pt 8pt; margin: 6pt 0; }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 9pt; }
+  .avoid { break-inside: avoid; }
+  .refs p { font-size: 8.8pt; text-align: left; }
+</style>
+</head>
+<body>
+
+<h1>Early warning for students at risk of failing</h1>
+<p class="subtitle">Mohamed Reda Zarrouk and Georgy Salameh · PGE 2 final project, Machine Learning × Advanced
+Python · November 2026 · Code: <code>student_risk</code> package, analysis in
+<code>notebooks/analysis.ipynb</code></p>
+
+<h2>1. Problem</h2>
+<p><b>User and decision.</b> The tool is meant for a secondary school's teaching team at the
+<b>start of the school year</b>. For each student it estimates the probability of failing the
+year, and flags the students to whom the school should <b>offer tutoring</b> before any grade of
+the year is known.</p>
+<p><b>Target and task.</b> <code>fail = 1</code> if the final grade G3 is below 10 out of 20,
+otherwise 0. This is a binary classification task in which "fail" is the positive and minority
+class (15.4&nbsp;% of students).</p>
+<p><b>Cost of each mistake.</b> A <b>false negative</b> (a failing student who is not flagged)
+gets no help and may fail the year: this is the costly error. A <b>false positive</b> (a passing
+student who is flagged) costs some tutoring time, and extra help rarely harms a student. We
+therefore put <b>recall first</b>: we require a recall of at least 0.80 (set in
+<code>config.yaml</code>) and, among the thresholds that reach it, we choose the one with the best
+precision, so that tutors are not flooded with false alarms.</p>
+
+<h2>2. Data</h2>
+<p>We use the UCI <i>Student Performance</i> dataset (id 320, CC BY 4.0; Cortez &amp; Silva,
+2008), loaded with <code>ucimlrepo</code> by our <code>DatasetLoader</code> class. It has
+<b>649 students</b> and 33 columns: 30 features plus the three period grades G1, G2 and G3.</p>
+<ul>
+  <li><b>Types and quality:</b> 13 numeric and 17 text (categorical) features; no missing value
+  and no duplicate row. The imputers in the pipeline are kept as a safeguard for new cases, for
+  which <code>predict</code> accepts empty fields.</li>
+  <li><b>Class balance:</b> 100 fails and 549 passes. A model that always answers "pass" is
+  85&nbsp;% accurate and useless, so accuracy is never used.</li>
+  <li><b>Special code G3 = 0:</b> 15 students have a final grade of exactly 0, and 8 of them had a
+  non-zero G2. A zero after a non-zero period grade suggests that the student may not have sat the
+  final exam rather than answered everything wrong. We <b>keep them as fails</b>: for the school,
+  a student who ends the year with 0 did not pass, and missing the exam is itself a sign of risk.
+  Section&nbsp;5 checks that this choice does not distort the model.</li>
+  <li><b>Leakage:</b> G1 and G2 have correlations of 0.83 and 0.92 with G3. A model using them
+  would mostly copy G2, and above all they are <b>not known at the start of the year</b>, when the
+  warning is needed. Both are dropped, and G3 is dropped once the target is built. A test checks
+  that none of the three is among the features.</li>
+  <li><b>Split:</b> one stratified train/test split (20&nbsp;% test, seed 42): <b>519 training
+  students (80 fails)</b> and <b>130 test students (20 fails)</b>, with no student in both sets.
+  The test set was then left untouched until the final evaluation.</li>
+</ul>
+
+<h2>3. Method</h2>
+<p><b>Pipeline.</b> All preparation is inside one scikit-learn <code>Pipeline</code> whose first
+step is a <code>ColumnTransformer</code>: numeric columns get median imputation then
+standardisation; text columns get most-frequent imputation then one-hot encoding (56 columns,
+unknown categories ignored). Because the whole pipeline is refitted on each training fold, the
+scaler and the encoder never see the validation fold, so no information leaks into the
+cross-validation scores.</p>
+<p><b>Protocol.</b> Every choice was made on the training set with the <b>same 5-fold
+<code>StratifiedKFold</code></b> (seed 42) for every model. We started from a
+<code>DummyClassifier</code> (always "pass") and an untuned logistic regression, then compared four
+models, each tuned with <code>GridSearchCV</code> (grids in <code>config.yaml</code>):</p>
+<ul>
+  <li>logistic regression with an <b>L2</b> penalty and with an <b>L1</b> penalty: C ∈ {0.001,
+  0.01, 0.1, 1, 10}, class weight none or balanced;</li>
+  <li><b>linear SVM</b> (<code>LinearSVC</code> inside <code>CalibratedClassifierCV</code> to obtain
+  probabilities): same C and class-weight grid;</li>
+  <li><b>k-NN</b>: k ∈ {5, 11, 21, 31, 41, 51}, uniform or distance weights.</li>
+</ul>
+<p><b>Metric.</b> Models are refitted and compared on <b>average precision</b> (AP, the area under
+the precision-recall curve). AP focuses on the rare positive class and does not depend on a
+threshold, which is chosen separately. ROC-AUC, recall, precision and F1 are reported as well.</p>
+<p><b>Selection rule.</b> We take the model with the best mean CV AP, but if a simpler model is
+within one standard deviation of it, we prefer the simpler one. The simplicity order is L2
+logistic regression &lt; L1 logistic regression &lt; linear SVM &lt; k-NN.</p>
+<p><b>Threshold.</b> <code>Trainer</code> computes <b>out-of-fold</b> probabilities for the 519
+training students (each student is predicted by a model that did not see them, on the same five
+folds) and chooses the threshold with recall ≥ 0.80 and the best precision.</p>
+<p><b>Single test.</b> The chosen pipeline, refitted on the whole training set, and the chosen
+threshold are scored <b>once</b> on the 130 test students, with a confusion matrix and a 95&nbsp;%
+Wilson interval for the test recall. Nothing was changed afterwards.</p>
+
+<h2>4. Results</h2>
+<h3>Baseline and model comparison (5-fold CV, training set)</h3>
+<table class="avoid">
+  <tr><th>Model</th><th>Best hyperparameters</th><th>AP (std)</th><th>ROC-AUC</th><th>Train AP</th><th>Recall @0.5</th></tr>
+  <tr><td>Dummy (always "pass")</td><td>–</td><td>0.154</td><td>0.500</td><td>–</td><td>0.00</td></tr>
+  <tr><td>Logistic regression, untuned</td><td>defaults</td><td>0.457</td><td>0.779</td><td>–</td><td>0.30</td></tr>
+  <tr class="chosen"><td>Logistic regression L2 (chosen)</td><td>C = 0.01, no class weight</td><td>0.500 (0.143)</td><td>0.803</td><td>0.560</td><td>0.05</td></tr>
+  <tr><td>Logistic regression L1</td><td>C = 0.1, no class weight</td><td>0.538 (0.158)</td><td>0.828</td><td>0.564</td><td>0.24</td></tr>
+  <tr><td>Linear SVM (calibrated)</td><td>C = 0.001, balanced</td><td>0.500 (0.147)</td><td>0.803</td><td>0.552</td><td>0.23</td></tr>
+  <tr><td>k-NN</td><td>k = 31, distance weights</td><td>0.510 (0.179)</td><td>0.768</td><td>1.000</td><td>0.05</td></tr>
+</table>
+<p class="caption">Table 1. Source: <code>reports/baseline.csv</code> and
+<code>reports/model_comparison.csv</code>, written by <code>student-risk train</code>. AP of the
+dummy equals the fail rate. Recall at the default threshold 0.5 is shown only to motivate the
+threshold choice.</p>
+<p>Every tuned model ranks students far better than the dummy. L1 logistic regression has the best
+mean AP (0.538), but its standard deviation is 0.158 and <b>all four models are within one standard
+deviation of it</b>: with 80 fails in the training set, the folds cannot separate them. The rule
+therefore picks the simplest model, <b>L2 logistic regression with C = 0.01</b>. k-NN clearly
+overfits (train AP 1.000 against 0.510 in CV). Because the hyperparameters and the model were chosen
+on the same folds, the CV score of the chosen model is slightly optimistic.</p>
+
+<div class="avoid"><h3>Decision threshold (out-of-fold, training set)</h3>
+<div class="figrow">
+  <div style="flex: 1.15">
+  <table>
+    <tr><th>Rule</th><th>Threshold</th><th>Recall</th><th>Precision</th><th>Flagged</th></tr>
+    <tr><td>Default</td><td>0.500</td><td>0.050</td><td>0.571</td><td>1.3&nbsp;%</td></tr>
+    <tr><td>Recall ≥ 0.70</td><td>0.171</td><td>0.725</td><td>0.389</td><td>28.7&nbsp;%</td></tr>
+    <tr class="chosen"><td>Recall ≥ 0.80 (chosen)</td><td>0.140</td><td>0.800</td><td>0.312</td><td>39.5&nbsp;%</td></tr>
+    <tr><td>Recall ≥ 0.90</td><td>0.116</td><td>0.900</td><td>0.248</td><td>55.9&nbsp;%</td></tr>
+  </table>
+  <p class="caption">Table 2. Source: <code>reports/threshold_report.csv</code> and
+  <code>reports/threshold_tradeoff.csv</code>.</p>
+  <p>At 0.5 the model catches only 4 of the 80 failing students, because the strong regularisation
+  keeps its probabilities low. At the chosen threshold of <b>0.140</b> it catches 64 of 80 (recall
+  0.80) with precision 0.31, which means flagging 39.5&nbsp;% of the students. Table&nbsp;2 shows the
+  price of recall, so that a school can pick the row that matches its tutoring capacity.</p>
+  </div>
+  <figure style="flex: 0.85"><img src="figures/precision_recall_oof.png" alt="Precision-recall curve">
+    <figcaption>Figure 1. Out-of-fold precision-recall curve of the chosen model; the point marks
+    the chosen threshold.</figcaption></figure>
+</div></div>
+
+<div class="avoid"><h3>Single test evaluation (130 students, used once)</h3>
+<div class="figrow">
+  <div style="flex: 1.3">
+  <table>
+    <tr><th>Metric</th><th>CV / out-of-fold (train)</th><th>Test</th></tr>
+    <tr><td>ROC-AUC</td><td>0.803</td><td>0.778</td></tr>
+    <tr><td>Average precision</td><td>0.500</td><td>0.346</td></tr>
+    <tr><td>Recall at 0.140</td><td>0.800</td><td><b>0.750</b> (15 / 20)</td></tr>
+    <tr><td>Precision at 0.140</td><td>0.312</td><td>0.300</td></tr>
+    <tr><td>F1 at 0.140</td><td>0.449</td><td>0.429</td></tr>
+    <tr><td>Share of students flagged</td><td>39.5&nbsp;%</td><td>38.5&nbsp;%</td></tr>
+  </table>
+  <p class="caption">Table 3. Confusion matrix on the test set: TN 75, FP 35, FN 5, TP 15.</p>
+  <p>The model catches <b>15 of the 20</b> failing test students and misses 5, with 35 false
+  alarms. The recall of 0.75 is just below the 0.80 goal, but with only 20 failing students its
+  <b>95&nbsp;% Wilson interval is [0.53, 0.89]</b>: the test set cannot tell a true recall of 0.75
+  from one of 0.80. Precision and the flagged share match the out-of-fold estimates closely. The
+  drop in AP (0.500 to 0.346) is consistent with the optimism of model selection and with the small
+  test set.</p>
+  </div>
+  <figure style="flex: 0.7"><img src="figures/confusion_matrix_test.png" alt="Test confusion matrix">
+    <figcaption>Figure 2. Confusion matrix on the test set at threshold 0.140.</figcaption></figure>
+</div></div>
+
+<div class="avoid"><h2>5. Interpretation</h2>
+<div class="figrow">
+  <div style="flex: 1.2">
+  <p><b>Reading the coefficients.</b> A coefficient of the logistic regression is a change in the
+  <b>log-odds of failing</b>. Numeric features are standardised, so a coefficient is the effect of
+  +1 training standard deviation, and e<sup>coefficient</sup> is the factor applied to the odds.
+  Text features are one-hot encoded with every category kept; with the L2 penalty, the two columns
+  of a yes/no feature get opposite coefficients, and what matters is their <b>difference</b>.
+  Coefficients are small overall because C = 0.01 is a strong penalty. They describe
+  <b>associations, not causes</b>.</p>
+  <ul>
+    <li><b>Past failures (+0.340):</b> the strongest signal. One standard deviation more (about
+    0.6 past failures) multiplies the odds of failing by 1.40.</li>
+    <li><b>School (MS +0.173, GP −0.173):</b> attending MS rather than GP adds 0.346 to the
+    log-odds (odds × 1.41). In the training set, 31&nbsp;% of MS students fail against 7&nbsp;% at
+    GP.</li>
+    <li><b>Study time (−0.167):</b> more weekly study time goes with a lower risk.</li>
+    <li><b>Parents' education (Fedu −0.109, Medu −0.071):</b> more educated parents go with a
+    lower risk.</li>
+    <li><b>Wants higher education (no +0.096, yes −0.096):</b> students who do not plan to
+    continue their studies are at higher risk.</li>
+    <li><b>Free time (+0.080), weekend alcohol (+0.073), absences (+0.058), going out
+    (+0.049):</b> each goes with a slightly higher risk.</li>
+  </ul>
+  </div>
+  <figure style="flex: 0.8"><img src="figures/coefficients.png" alt="Top coefficients">
+    <figcaption>Figure 3. The 15 largest coefficients of the chosen model (positive = higher risk
+    of failing).</figcaption></figure>
+</div></div>
+
+<h3>Checks on the training set (reported only; nothing was changed)</h3>
+<p><b>Sensitivity to the G3 = 0 students.</b> With the same model and hyperparameters and the same
+5-fold CV, removing the 11 training students with G3 = 0 leaves ROC-AUC almost unchanged (0.803 →
+0.805). AP goes from 0.500 to 0.464, but AP depends on the fail rate, which also changes (15.4&nbsp;%
+→ 13.6&nbsp;%), and the difference is well within one standard deviation. Nine of the 11 G3 = 0
+students are flagged out-of-fold, so they are not hard cases. Our decision to keep them stands.</p>
+<p><b>Fairness.</b> We applied the chosen threshold to the out-of-fold probabilities separately for
+each group:</p>
+<table class="avoid">
+  <tr><th>Group</th><th>Students</th><th>Fails</th><th>Recall [95&nbsp;% Wilson]</th><th>Precision</th><th>Flagged</th></tr>
+  <tr><td>Female</td><td>303</td><td>40</td><td>0.75 [0.60, 0.86]</td><td>0.28</td><td>35.0&nbsp;%</td></tr>
+  <tr><td>Male</td><td>216</td><td>40</td><td>0.85 [0.71, 0.93]</td><td>0.34</td><td>45.8&nbsp;%</td></tr>
+  <tr><td>School GP</td><td>339</td><td>25</td><td>0.68 [0.48, 0.83]</td><td>0.22</td><td>23.3&nbsp;%</td></tr>
+  <tr><td>School MS</td><td>180</td><td>55</td><td>0.85 [0.74, 0.92]</td><td>0.37</td><td>70.0&nbsp;%</td></tr>
+</table>
+<p class="caption">Table 4. Out-of-fold results on the 519 training students, threshold 0.140.</p>
+<p>Because the model uses the school as a strong signal, <b>70&nbsp;% of MS students are flagged</b>,
+whereas a failing GP student is more likely to be missed. Boys are flagged more often than girls.
+Each recall is based on only 25 to 55 failing students, so the intervals are wide and overlap: these
+gaps are <b>warnings to monitor, not proven biases</b>.</p>
+
+<h2>6. Limits</h2>
+<p><b>1. Small data and optimistic selection.</b> With 519 training students and 80 fails, CV scores
+vary strongly from fold to fold (AP standard deviation ≈ 0.14) and the four models are statistically
+tied. Choosing the model on the same folds makes its CV score optimistic (AP 0.500 in CV, 0.346 on
+test), and the test set has only 20 fails, so the test recall is uncertain (interval [0.53, 0.89]).
+A larger dataset, or repeated or nested cross-validation, would give more reliable estimates.</p>
+<p><b>2. Limited signal without grades.</b> Once G1 and G2 are excluded, the profile features carry
+only moderate information: reaching a recall of 0.80 means flagging about 40&nbsp;% of all students,
+and only about one flagged student in three actually fails. The model is linear and cannot capture
+interactions between features unless they are added by hand. It was trained on two schools over one
+period, so it may not transfer to other schools, countries or years without being retrained and
+checked again.</p>
+
+<h2>7. Risks of using it on real students</h2>
+<p>The errors fall on real people. About one failing student in four is missed (5 of 20 in the test
+set), so "not flagged" must never be read as "safe"; and about two flagged students in three would
+have passed, so a flag must lead only to an <b>offer of support</b>, never to a sanction, a lower
+expectation or a label in the student's file. The model also relies on the school attended, past
+failures and parents' education, which reflect social background as much as individual effort; the
+group rates in Table&nbsp;4 already differ, so the tool could reinforce existing inequalities unless
+outcomes are checked per group regularly and a teacher keeps the final decision. Finally, the inputs
+are sensitive personal data (family situation, parents' jobs and education, alcohol use, health,
+romantic relationships): collecting them needs a clear legal basis, informed students and families,
+access limited to the staff who act on the flags, and a strict retention period. Features that are
+not needed, or that are too intrusive, should be removed even at some cost in accuracy.</p>
+
+<h2>Reproducibility and references</h2>
+<div class="refs">
+<p>All results come from the <code>student_risk</code> package: <code>pip install -e .</code>, then
+<code>student-risk train</code> (writes <code>reports/*.csv</code> and the model) and
+<code>student-risk evaluate</code> (test metrics). The notebook calls the same package and checks
+that it recovers exactly the saved threshold and tables. Seed 42 everywhere; 19 pytest tests pass.</p>
+<p>P. Cortez, <i>Student Performance</i> [Dataset], UCI Machine Learning Repository, 2008.
+https://doi.org/10.24432/C5TG7T. Licence CC BY 4.0.</p>
+<p>P. Cortez and A. M. G. Silva, "Using Data Mining to Predict Secondary School Student
+Performance", <i>Proceedings of the 5th Annual Future Business Technology Conference (FUBUTEC
+2008)</i>, 2008.</p>
+<p>E. B. Wilson, "Probable inference, the law of succession, and statistical inference",
+<i>Journal of the American Statistical Association</i>, 22(158), 1927.</p>
+<p>Generative AI use is declared in <code>AI_USAGE.md</code>.</p>
+</div>
+
+</body>
+</html>
